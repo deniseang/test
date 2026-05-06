@@ -43,13 +43,34 @@ Never derive the newsletter date from the raw `date` command (UTC). Sessions
 that run after 16:00 UTC (= midnight SGT) will otherwise produce a title dated
 one day behind the actual Singapore date.
 
+### News scan window
+
+Only include stories published within a fixed 24-hour window:
+
+| Boundary | Time |
+|----------|------|
+| **Start** | Previous day 06:00 SGT |
+| **End**   | Posting day 06:00 SGT  |
+
+Compute both boundaries at the start of the session:
+
+```bash
+SGT_TODAY=$(TZ=Asia/Singapore date '+%Y-%m-%d')
+SGT_YESTERDAY=$(TZ=Asia/Singapore date -d "$SGT_TODAY - 1 day" '+%Y-%m-%d')
+# Scan window: ${SGT_YESTERDAY} 06:00 SGT  →  ${SGT_TODAY} 06:00 SGT
+```
+
+Stories outside this window (older than yesterday 06:00 SGT, or published after
+today 06:00 SGT) must be excluded or clearly labelled as out-of-window context.
+
 ### When running the newsletter session
 
-1. Get today's Singapore date: `TZ=Asia/Singapore date '+%A, %-d %B %Y'`
-2. Research and write the briefing using that date throughout.
-3. Save the full content to `newsletter/draft.md` (overwrite any previous draft).
-4. Post to Notion using `notion-create-pages` with parent
+1. Compute the scan window (see above).
+2. Research stories published within that window only.
+3. Write the briefing, using the SGT posting date throughout the title and header.
+4. Save the full content to `newsletter/draft.md` (overwrite any previous draft).
+5. Post to Notion using `notion-create-pages` with parent
    `347cee621c3d8090be7cf83f7240b374` and icon `🧠`.
-5. On success, clear `newsletter/draft.md`.
-6. If the session ends before step 4, run `./newsletter/post.sh` in a new session
+6. On success, clear `newsletter/draft.md`.
+7. If the session ends before step 5, run `./newsletter/post.sh` in a new session
    to complete the post.
