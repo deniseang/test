@@ -30,12 +30,26 @@ If Phase 1 completed but Phase 2 never ran, execute the recovery script:
 This reads `newsletter/draft.md`, posts it to Notion under the AI Daily parent
 page, and clears the file on success.
 
+### Date — always use Singapore time (UTC+8)
+
+The server clock is **UTC**. The newsletter date must reflect Singapore local
+time, not UTC. Any shell `date` call must include the timezone:
+
+```bash
+TZ=Asia/Singapore date '+%A, %-d %B %Y'   # e.g. Wednesday, 6 May 2026
+```
+
+Never derive the newsletter date from the raw `date` command (UTC). Sessions
+that run after 16:00 UTC (= midnight SGT) will otherwise produce a title dated
+one day behind the actual Singapore date.
+
 ### When running the newsletter session
 
-1. Research and write the briefing.
-2. Save the full content to `newsletter/draft.md` (overwrite any previous draft).
-3. Post to Notion using `notion-create-pages` with parent
+1. Get today's Singapore date: `TZ=Asia/Singapore date '+%A, %-d %B %Y'`
+2. Research and write the briefing using that date throughout.
+3. Save the full content to `newsletter/draft.md` (overwrite any previous draft).
+4. Post to Notion using `notion-create-pages` with parent
    `347cee621c3d8090be7cf83f7240b374` and icon `🧠`.
-4. On success, clear `newsletter/draft.md`.
-5. If the session ends before step 3, run `./newsletter/post.sh` in a new session
+5. On success, clear `newsletter/draft.md`.
+6. If the session ends before step 4, run `./newsletter/post.sh` in a new session
    to complete the post.
