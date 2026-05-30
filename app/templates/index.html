@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+{% block title %}Today — Star Chart{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Today's Chart</h1>
+    <p class="date-display">{{ today }}</p>
+  </div>
+  <div class="balance-badge">
+    <span class="balance-number" id="points-balance">{{ points_balance }}</span>
+    <span class="balance-label">pts</span>
+  </div>
+</div>
+
+<!-- Allowance Banner -->
+{% if allowance %}
+<div class="allowance-banner {% if allowance.paid %}paid{% endif %}">
+  <span>🎉 Daily Allowance: <strong>${{ "%.2f"|format(allowance.amount) }}</strong>
+    {% if allowance.paid %}<span class="badge green">Paid</span>{% else %}<span class="badge yellow">Unpaid</span>{% endif %}
+  </span>
+  {% if not allowance.paid %}
+  <button class="btn btn-sm btn-success" onclick="markAllowancePaid('{{ today }}')">Mark Paid</button>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="grid-2">
+  <!-- LEFT COLUMN -->
+  <div class="column">
+
+    <!-- CHORES -->
+    <section class="card">
+      <h2>🧹 Chores</h2>
+      <p class="section-hint">Each chore done today = +points. Complete at least one to earn $10 daily allowance.</p>
+      <ul class="item-list" id="chores-list">
+        {% for chore in chores %}
+        <li class="item-row {% if chore.id in completed_ids['chore'] %}completed{% endif %}" id="chore-{{ chore.id }}">
+          <div class="item-info">
+            <span class="item-name">{{ chore.name }}</span>
+            <span class="item-pts">+{{ chore.points }} pts</span>
+          </div>
+          <div class="item-actions">
+            {% if chore.id in completed_ids['chore'] %}
+            <button class="btn btn-sm btn-outline" onclick="unlogItem('chore', {{ chore.id }})">Undo</button>
+            {% else %}
+            <button class="btn btn-sm btn-primary" onclick="logItem('chore', {{ chore.id }})">Done ✓</button>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- ACCOMPLISHMENTS -->
+    <section class="card">
+      <h2>🏆 Accomplishments & Obligations</h2>
+      <ul class="item-list" id="accomplishments-list">
+        {% for acc in accomplishments %}
+        <li class="item-row {% if acc.id in completed_ids['accomplishment'] %}completed{% endif %}" id="acc-{{ acc.id }}">
+          <div class="item-info">
+            <span class="item-name">{{ acc.name }}</span>
+            <span class="item-pts">+{{ acc.points }} pts</span>
+          </div>
+          <div class="item-actions">
+            {% if acc.id in completed_ids['accomplishment'] %}
+            <button class="btn btn-sm btn-outline" onclick="unlogItem('accomplishment', {{ acc.id }})">Undo</button>
+            {% else %}
+            <button class="btn btn-sm btn-primary" onclick="logItem('accomplishment', {{ acc.id }})">Award ✓</button>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- PENALTY -->
+    <section class="card">
+      <h2>⚠️ Add Penalty</h2>
+      <div class="form-group">
+        <input type="text" id="penalty-reason" placeholder="Reason for penalty..." class="input">
+      </div>
+      <div class="form-row">
+        <input type="number" id="penalty-points" value="10" min="1" max="100" class="input input-sm">
+        <label class="input-label">points deduction</label>
+        <button class="btn btn-danger" onclick="addPenalty()">Apply Penalty</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="column">
+
+    <!-- PRIVILEGES -->
+    <section class="card">
+      <h2>🎁 Award Privilege</h2>
+      <p class="section-hint">Redeem points for privileges. Balance: <strong id="balance-inline">{{ points_balance }}</strong> pts</p>
+      <ul class="privilege-list">
+        {% for priv in privileges %}
+        <li class="privilege-row" id="priv-{{ priv.id }}">
+          <div class="priv-info">
+            <span class="priv-name">{{ priv.name }}</span>
+            <span class="priv-desc">{{ priv.description }}</span>
+          </div>
+          <div class="priv-meta">
+            {% if priv.has_duration %}
+            <div class="duration-pick">
+              <input type="number" id="dur-{{ priv.id }}" value="1" min="0.5" max="12" step="0.5" class="input input-xs"> hr
+            </div>
+            <span class="priv-cost" id="cost-{{ priv.id }}" data-base="{{ priv.cost }}">{{ priv.cost }} pts/hr</span>
+            {% else %}
+            <span class="priv-cost">{{ priv.cost }} pts</span>
+            {% endif %}
+            <button class="btn btn-sm btn-accent" onclick="awardPrivilege({{ priv.id }}, {{ priv.has_duration }})">Award</button>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- TODAY'S ACTIVITY -->
+    <section class="card">
+      <h2>📋 Today's Activity</h2>
+      {% if today_log or today_penalties or today_awards %}
+      <ul class="activity-list">
+        {% for entry in today_log %}
+        <li class="activity-item earned">
+          <span class="act-icon">{% if entry.item_type == 'chore' %}🧹{% else %}⭐{% endif %}</span>
+          <span class="act-name">{{ entry.item_name }}</span>
+          <span class="act-pts green">+{{ entry.points }} pts</span>
+        </li>
+        {% endfor %}
+        {% for pen in today_penalties %}
+        <li class="activity-item penalty">
+          <span class="act-icon">⚠️</span>
+          <span class="act-name">{{ pen.reason }}</span>
+          <span class="act-pts red">-{{ pen.points }} pts</span>
+        </li>
+        {% endfor %}
+        {% for award in today_awards %}
+        <li class="activity-item award">
+          <span class="act-icon">🎁</span>
+          <span class="act-name">{{ award.privilege_name }}{% if award.duration_hours %} ({{ award.duration_hours }}h){% endif %}</span>
+          <span class="act-pts orange">-{{ award.cost }} pts</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="empty-state">Nothing logged yet today. Start checking off chores!</p>
+      {% endif %}
+
+      <div class="today-summary">
+        <span>Today's net: <strong id="today-pts">{{ today_points }} pts</strong></span>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- Award Modal -->
+<div id="award-modal" class="modal hidden">
+  <div class="modal-box">
+    <h3 id="modal-title">Award Privilege</h3>
+    <p id="modal-cost-info"></p>
+    <div class="form-group">
+      <input type="text" id="modal-notes" placeholder="Notes (optional)" class="input">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmAward()">Confirm Award</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let pendingAward = null;
+
+  function updateBalance(balance) {
+    document.getElementById('points-balance').textContent = balance;
+    document.getElementById('balance-inline').textContent = balance;
+  }
+
+  function logItem(type, id) {
+    fetch('/log_item', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type, id})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error, 'error'); return; }
+      const row = document.getElementById(`${type === 'chore' ? 'chore' : 'acc'}-${id}`);
+      row.classList.add('completed');
+      row.querySelector('.item-actions').innerHTML = `<button class="btn btn-sm btn-outline" onclick="unlogItem('${type}', ${id})">Undo</button>`;
+      updateBalance(data.balance);
+      showToast(`+${data.points} points earned!`, 'success');
+      addActivityItem(type, id, data.points, row.querySelector('.item-name').textContent);
+      // Reload to show allowance banner if earned
+      if (type === 'chore') setTimeout(() => location.reload(), 800);
+    });
+  }
+
+  function unlogItem(type, id) {
+    fetch('/unlog_item', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type, id})
+    })
+    .then(r => r.json())
+    .then(data => {
+      const row = document.getElementById(`${type === 'chore' ? 'chore' : 'acc'}-${id}`);
+      row.classList.remove('completed');
+      row.querySelector('.item-actions').innerHTML = `<button class="btn btn-sm btn-primary" onclick="logItem('${type}', ${id})">${type === 'chore' ? 'Done ✓' : 'Award ✓'}</button>`;
+      updateBalance(data.balance);
+      showToast('Entry removed', 'info');
+      if (type === 'chore') setTimeout(() => location.reload(), 800);
+    });
+  }
+
+  function awardPrivilege(id, hasDuration) {
+    const cost = parseInt(document.querySelector(`#priv-${id} .priv-cost`).dataset.base ||
+                           document.querySelector(`#priv-${id} .priv-cost`).textContent);
+    const name = document.querySelector(`#priv-${id} .priv-name`).textContent;
+    let duration = null;
+    let finalCost = cost;
+
+    if (hasDuration) {
+      duration = parseFloat(document.getElementById(`dur-${id}`).value) || 1;
+      const base = parseInt(document.querySelector(`#priv-${id} .priv-cost`).dataset.base);
+      finalCost = Math.round(base * duration);
+    }
+
+    const balance = parseInt(document.getElementById('points-balance').textContent);
+    if (balance < finalCost) {
+      showToast(`Not enough points! Need ${finalCost}, have ${balance}`, 'error');
+      return;
+    }
+
+    pendingAward = {id, duration, cost: finalCost, name};
+    document.getElementById('modal-title').textContent = `Award: ${name}`;
+    document.getElementById('modal-cost-info').textContent =
+      hasDuration ? `${duration}h × ${cost} pts/hr = ${finalCost} pts` : `Cost: ${finalCost} pts`;
+    document.getElementById('modal-notes').value = '';
+    document.getElementById('award-modal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('award-modal').classList.add('hidden');
+    pendingAward = null;
+  }
+
+  function confirmAward() {
+    if (!pendingAward) return;
+    const notes = document.getElementById('modal-notes').value;
+    fetch('/award_privilege', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({...pendingAward, notes})
+    })
+    .then(r => r.json())
+    .then(data => {
+      closeModal();
+      if (data.error) { showToast(data.error, 'error'); return; }
+      updateBalance(data.balance);
+      showToast(`Privilege awarded! -${data.cost} pts`, 'success');
+      setTimeout(() => location.reload(), 800);
+    });
+  }
+
+  function addPenalty() {
+    const reason = document.getElementById('penalty-reason').value.trim();
+    const points = parseInt(document.getElementById('penalty-points').value) || 10;
+    if (!reason) { showToast('Enter a reason for the penalty', 'error'); return; }
+
+    fetch('/add_penalty', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({reason, points})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { showToast(data.error, 'error'); return; }
+      document.getElementById('penalty-reason').value = '';
+      updateBalance(data.balance);
+      showToast(`Penalty applied: -${points} pts`, 'warning');
+      setTimeout(() => location.reload(), 800);
+    });
+  }
+
+  function markAllowancePaid(date) {
+    fetch('/mark_allowance_paid', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date})
+    })
+    .then(r => r.json())
+    .then(() => { showToast('Allowance marked as paid!', 'success'); setTimeout(() => location.reload(), 800); });
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('award-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+{% endblock %}

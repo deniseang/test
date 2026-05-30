@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Settings — Star Chart{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>⚙️ Settings</h1>
+</div>
+
+<div class="grid-2">
+  <div class="column">
+
+    <section class="card">
+      <h2>🧹 Chores</h2>
+      <ul class="settings-list">
+        {% for chore in chores %}
+        <li class="settings-row {% if not chore.active %}inactive{% endif %}">
+          <span class="settings-name">{{ chore.name }}</span>
+          <span class="settings-pts">{{ chore.points }} pts</span>
+          <button class="btn btn-xs {% if chore.active %}btn-outline{% else %}btn-success{% endif %}"
+                  onclick="toggleActive('chore', {{ chore.id }}, this)">
+            {% if chore.active %}Disable{% else %}Enable{% endif %}
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="add-form">
+        <h4>Add New Chore</h4>
+        <div class="form-row">
+          <input type="text" id="new-chore-name" placeholder="Chore name" class="input">
+          <input type="number" id="new-chore-pts" value="10" min="1" max="100" class="input input-sm" placeholder="pts">
+          <button class="btn btn-primary" onclick="addChore()">Add</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🏆 Accomplishments</h2>
+      <ul class="settings-list">
+        {% for acc in accomplishments %}
+        <li class="settings-row {% if not acc.active %}inactive{% endif %}">
+          <span class="settings-name">{{ acc.name }}</span>
+          <span class="settings-pts">{{ acc.points }} pts</span>
+          <button class="btn btn-xs {% if acc.active %}btn-outline{% else %}btn-success{% endif %}"
+                  onclick="toggleActive('accomplishment', {{ acc.id }}, this)">
+            {% if acc.active %}Disable{% else %}Enable{% endif %}
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="add-form">
+        <h4>Add New Accomplishment</h4>
+        <div class="form-row">
+          <input type="text" id="new-acc-name" placeholder="Accomplishment name" class="input">
+          <input type="number" id="new-acc-pts" value="20" min="1" max="200" class="input input-sm" placeholder="pts">
+          <button class="btn btn-primary" onclick="addAccomplishment()">Add</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="column">
+
+    <section class="card">
+      <h2>🎁 Privileges & Costs</h2>
+      <ul class="settings-list">
+        {% for priv in privileges %}
+        <li class="settings-row {% if not priv.active %}inactive{% endif %}">
+          <span class="settings-name">{{ priv.name }}</span>
+          <span class="settings-pts">
+            <input type="number" id="priv-cost-{{ priv.id }}" value="{{ priv.cost }}" min="1" max="500"
+                   class="input input-xs" onchange="updatePrivilegeCost({{ priv.id }})">
+            pts{% if priv.has_duration %}/hr{% endif %}
+          </span>
+          <button class="btn btn-xs {% if priv.active %}btn-outline{% else %}btn-success{% endif %}"
+                  onclick="toggleActive('privilege', {{ priv.id }}, this)">
+            {% if priv.active %}Disable{% else %}Enable{% endif %}
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>📖 Points Guide</h2>
+      <div class="guide">
+        <h4>Earning Points</h4>
+        <ul>
+          <li>Each chore completed = its point value</li>
+          <li>Any chore done today = $10 daily allowance</li>
+          <li>Accomplishments award bonus points</li>
+        </ul>
+        <h4>Spending Points</h4>
+        <ul>
+          <li>Privileges cost their listed point value</li>
+          <li>Duration-based privileges multiply cost per hour</li>
+          <li>Points balance carries over day-to-day</li>
+        </ul>
+        <h4>Penalties</h4>
+        <ul>
+          <li>Penalties deduct points from the balance</li>
+          <li>Balance can go negative</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function addChore() {
+    const name = document.getElementById('new-chore-name').value.trim();
+    const points = parseInt(document.getElementById('new-chore-pts').value) || 10;
+    if (!name) { showToast('Enter a chore name', 'error'); return; }
+    fetch('/add_chore', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, points})
+    })
+    .then(r => r.json())
+    .then(d => { showToast('Chore added!', 'success'); setTimeout(() => location.reload(), 600); });
+  }
+
+  function addAccomplishment() {
+    const name = document.getElementById('new-acc-name').value.trim();
+    const points = parseInt(document.getElementById('new-acc-pts').value) || 20;
+    if (!name) { showToast('Enter an accomplishment name', 'error'); return; }
+    fetch('/add_accomplishment', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, points})
+    })
+    .then(r => r.json())
+    .then(d => { showToast('Accomplishment added!', 'success'); setTimeout(() => location.reload(), 600); });
+  }
+
+  function updatePrivilegeCost(id) {
+    const cost = parseInt(document.getElementById(`priv-cost-${id}`).value);
+    fetch('/update_privilege', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id, cost})
+    })
+    .then(r => r.json())
+    .then(() => showToast('Cost updated', 'success'));
+  }
+
+  function toggleActive(type, id, btn) {
+    fetch('/toggle_active', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type, id})
+    })
+    .then(r => r.json())
+    .then(() => { showToast('Updated', 'info'); setTimeout(() => location.reload(), 400); });
+  }
+</script>
+{% endblock %}
