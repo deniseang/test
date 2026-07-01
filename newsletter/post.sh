@@ -43,6 +43,10 @@ News scan window: $SCAN_START  →  $SCAN_END
 Title: extract from the first heading or date line in the content below; if the
 date in the draft differs from the Singapore date above, prefer the Singapore date.
 
+The draft is a full 10-section briefing (see newsletter/FORMAT.md). Post it
+faithfully and in full — preserve every section, heading, list, and citation.
+Do NOT summarise, truncate, or drop any section.
+
 Use the notion-create-pages tool. After the page is confirmed created, output the
 word DONE on a line by itself.
 
