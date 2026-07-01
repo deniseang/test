@@ -3,15 +3,27 @@
 # Run this whenever the main newsletter session ends before reaching the Notion
 # posting step (e.g. context exhaustion during research).
 #
+# The draft is written incrementally, one section at a time, and a finished draft
+# ends with the marker line "<!-- AI-DAILY-COMPLETE -->". By default this script
+# refuses to post a draft that lacks the marker (a partial briefing). Finish it in
+# a resuming session first, or pass --partial to post as-is.
+#
 # Usage:
-#   ./newsletter/post.sh
+#   ./newsletter/post.sh              # post a complete draft
+#   ./newsletter/post.sh --partial    # post whatever is in the draft, incomplete
 #
 # After a successful post the draft file is cleared so the next run starts clean.
 
 set -euo pipefail
 
+ALLOW_PARTIAL=0
+if [[ "${1:-}" == "--partial" ]]; then
+  ALLOW_PARTIAL=1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DRAFT="$SCRIPT_DIR/draft.md"
+COMPLETE_MARKER="<!-- AI-DAILY-COMPLETE -->"
 NOTION_PARENT_ID="347cee621c3d8090be7cf83f7240b374"
 
 # Server clock is UTC; newsletter dates must reflect Singapore time (UTC+8).
@@ -31,7 +43,21 @@ if [[ ! -s "$DRAFT" ]]; then
   exit 1
 fi
 
-DRAFT_CONTENT="$(cat "$DRAFT")"
+# A finished draft ends with the completion marker. Refuse partial drafts unless
+# --partial was passed.
+if ! grep -qF "$COMPLETE_MARKER" "$DRAFT"; then
+  if [[ "$ALLOW_PARTIAL" -eq 0 ]]; then
+    echo "Error: $DRAFT has no completion marker — it looks partial." >&2
+    echo "Finish the remaining sections in a resuming session, or re-run with" >&2
+    echo "  ./newsletter/post.sh --partial" >&2
+    echo "to post the incomplete draft as-is." >&2
+    exit 1
+  fi
+  echo "Warning: posting a partial draft (--partial)." >&2
+fi
+
+# Strip the completion marker so it does not appear in the posted page.
+DRAFT_CONTENT="$(grep -vF "$COMPLETE_MARKER" "$DRAFT")"
 
 claude --print "$(cat <<PROMPT
 Post the following newsletter draft to Notion.

@@ -99,6 +99,20 @@ date + URL + 1–2 sentence description.
 - **📡 Source Coverage** — bulleted list of source groups scanned.
 - Footer: `— AI Daily | HTX AI Strategic Intelligence | Generated: {D Mon YYYY} (SGT)`
 
+## Incremental drafting
+
+Write `newsletter/draft.md` **one section at a time** — title + header first, then
+append each of the 10 sections as it is finished (see CLAUDE.md → "Incremental
+drafting"). After the last section, append the completion marker as the final
+line:
+
+```
+<!-- AI-DAILY-COMPLETE -->
+```
+
+The marker signals a finished draft. `post.sh` refuses to post a draft without it
+(unless `--partial` is passed) and strips it before posting.
+
 ## Notes
 
 - Every story/headline carries an inline `[Date | Source | Link]` citation.

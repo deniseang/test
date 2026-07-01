@@ -27,8 +27,9 @@ session exhausts its context window or is interrupted before the Notion
 ### Two-phase workflow (fixes the problem)
 
 **Phase 1 — generate:** run the newsletter research and drafting as normal, but
-write the finished content to `newsletter/draft.md` *before* posting to Notion.
-This file is git-tracked, so the draft survives session restarts.
+write the content to `newsletter/draft.md` *before* posting to Notion. This file
+is git-tracked, so the draft survives session restarts. **Write the draft
+incrementally** — see below.
 
 **Phase 2 — post:** call the Notion `create-pages` tool with the draft content.
 If Phase 1 completed but Phase 2 never ran, execute the recovery script:
@@ -39,6 +40,29 @@ If Phase 1 completed but Phase 2 never ran, execute the recovery script:
 
 This reads `newsletter/draft.md`, posts it to Notion under the AI Daily parent
 page, and clears the file on success.
+
+### Incremental drafting (protects against mid-run failures)
+
+The 10-section format is long, so a session can run out of context *while
+drafting*, not just before posting. To avoid losing everything, **append each
+section to `newsletter/draft.md` as soon as it is written** — do not hold the
+whole briefing in memory and write it once at the end.
+
+1. First, write the title + header line to `newsletter/draft.md` (overwrite).
+2. After finishing **each** of the 10 sections, append that section to the file.
+3. When the final section (Source Coverage + footer) is appended, add a
+   completion marker as the last line so tooling can tell a finished draft from a
+   partial one:
+
+   ```
+   <!-- AI-DAILY-COMPLETE -->
+   ```
+
+If a session dies mid-draft, the next session reads `newsletter/draft.md`, sees
+which section headings are already present, resumes from the first missing
+section, appends the remaining sections + completion marker, then posts. A
+partial draft (no completion marker) must be finished before posting — never
+post a half-written briefing.
 
 ### Date — always use Singapore time (UTC+8)
 
@@ -81,12 +105,15 @@ today 06:00 SGT.
 
 1. Read `newsletter/FORMAT.md` for the full 10-section structure.
 2. Compute the scan windows (see above).
-3. Research each section within its own window.
-4. Write the briefing across **all 10 sections**, using the SGT posting date
-   throughout the title and header.
-5. Save the full content to `newsletter/draft.md` (overwrite any previous draft).
+3. Write the title + header line to `newsletter/draft.md` (overwrite any previous
+   draft), using the SGT posting date.
+4. For each of the 10 sections: research within its window, write it, and
+   **append it to `newsletter/draft.md` immediately** before moving on.
+5. After the last section, append `<!-- AI-DAILY-COMPLETE -->` as the final line.
 6. Post to Notion using `notion-create-pages` with parent
    `347cee621c3d8090be7cf83f7240b374` and icon `🧠`.
 7. On success, clear `newsletter/draft.md`.
-8. If the session ends before step 6, run `./newsletter/post.sh` in a new session
-   to complete the post.
+8. If the session ends before step 6:
+   - **Draft complete** (has the completion marker) → run `./newsletter/post.sh`.
+   - **Draft partial** (no marker) → start a new session; it resumes from the
+     first missing section, finishes the draft, then posts.
